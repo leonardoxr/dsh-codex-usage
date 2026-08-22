@@ -111,7 +111,7 @@ export class CodexAppServer {
         clientInfo: {
           name: 'dsh_codex_usage',
           title: 'DeepSeek Harness Codex Usage',
-          version: '0.1.4',
+          version: '0.1.5',
         },
         capabilities: {
           optOutNotificationMethods: [

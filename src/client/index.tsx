@@ -127,26 +127,41 @@ function UsagePanel({ data, error, loading }: { data: CodexUsageData | null; err
   </div>
 }
 
-function OpenAIUsageIndicator() {
+export function OpenAIUsageIndicator() {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   const [open, setOpen] = useState(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const percent = useMemo(() => maxUsed(state.data), [state.data])
   const level = severity(percent)
 
   const enter = () => {
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current)
+    closeTimer.current = null
     setOpen(true)
     if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
     hoverTimer.current = setTimeout(() => { void store.refresh(true) }, 250)
   }
   const leave = () => {
-    setOpen(false)
     if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
     hoverTimer.current = null
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => {
+      setOpen(false)
+      closeTimer.current = null
+    }, 200)
+  }
+  const closeImmediately = () => {
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current)
+    hoverTimer.current = null
+    closeTimer.current = null
+    setOpen(false)
   }
 
   useEffect(() => () => {
     if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current)
   }, [])
 
   return <div className="dcu-usage-root" onMouseEnter={enter} onMouseLeave={leave}>
@@ -161,7 +176,7 @@ function OpenAIUsageIndicator() {
       onClick={enter}
       onKeyDown={event => {
         if (event.key === 'Escape') {
-          leave()
+          closeImmediately()
           event.currentTarget.blur()
         }
       }}
