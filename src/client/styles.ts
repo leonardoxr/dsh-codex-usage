@@ -12,7 +12,7 @@ export const styles = `
 .dcu-fill-critical{stroke:var(--dsw-static-red-500,#ef4444)}
 .dcu-logo{width:12px;height:12px;color:var(--dsw-alias-label-secondary);z-index:1}
 .dcu-status-dot{position:absolute;right:1px;bottom:1px;width:5px;height:5px;border:1.5px solid var(--dsw-specific-sidebar);border-radius:50%;background:var(--dsw-static-red-500,#ef4444)}
-.dcu-panel{z-index:1100;box-sizing:border-box;width:min(320px,calc(100vw - 24px));max-height:min(520px,calc(100vh - 32px));overflow:auto;border:1px solid var(--dsw-alias-border-inverted);background:var(--dsw-specific-menu);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-secondary);cursor:default;border-radius:12px;padding:14px;position:absolute;bottom:calc(100% + 8px);right:0;text-align:left;font-size:12px;line-height:18px}
+.dcu-panel{z-index:1100;box-sizing:border-box;width:min(320px,calc(100vw - 24px),var(--dcu-panel-available-width,320px));max-height:min(520px,calc(100vh - 32px));overflow:auto;border:1px solid var(--dsw-alias-border-inverted);background:var(--dsw-specific-menu);box-shadow:var(--dsw-shadow-lv3);color:var(--dsw-alias-label-secondary);cursor:default;border-radius:12px;padding:14px;position:absolute;bottom:calc(100% + 8px);right:0;text-align:left;font-size:12px;line-height:18px}
 .dcu-panel-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
 .dcu-panel-title{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:600;line-height:18px}
 .dcu-panel-subtitle{color:var(--dsw-alias-label-tertiary);margin-top:1px}

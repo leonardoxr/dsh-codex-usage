@@ -54,7 +54,7 @@ A tarball ships prebuilt Host and lazy-CJS client artifacts, avoiding install-ti
 
 ~~~sh
 pnpm pack
-dsh plugin --profile web add ./dsh-codex-usage-0.1.3.tgz
+dsh plugin --profile web add ./dsh-codex-usage-0.1.4.tgz
 ~~~
 
 For a Git-host install, pnpm 10 requires the profile to allow this package's prepare script. Pin a commit and follow the exact allowBuilds instruction printed by DSH/pnpm.

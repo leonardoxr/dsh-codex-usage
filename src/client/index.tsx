@@ -192,8 +192,10 @@ export function bindFooterMeter(anchor: HTMLDivElement): () => void {
   const position = () => {
     if (settingsTrigger === null) return
     const rect = settingsTrigger.getBoundingClientRect()
-    anchor.style.left = `${rect.right + 4}px`
+    const left = rect.right + 4
+    anchor.style.left = `${left}px`
     anchor.style.top = `${rect.top + (rect.height - 28) / 2}px`
+    anchor.style.setProperty('--dcu-panel-available-width', `${Math.max(0, left + 28 - 12)}px`)
     anchor.style.visibility = 'visible'
   }
   const releaseTrigger = () => {
@@ -203,6 +205,7 @@ export function bindFooterMeter(anchor: HTMLDivElement): () => void {
       settingsTrigger.style.width = previousWidth
     }
     settingsTrigger = null
+    anchor.style.removeProperty('--dcu-panel-available-width')
     anchor.style.visibility = 'hidden'
   }
   const bindTrigger = () => {

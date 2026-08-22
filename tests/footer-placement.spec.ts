@@ -53,6 +53,7 @@ describe('footer meter placement', () => {
     await vi.waitFor(() => { expect(first.style.width).toBe('calc(100% - 34px)') })
     expect(anchor.style.left).toBe('204px')
     expect(anchor.style.top).toBe('407px')
+    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('220px')
     expect(anchor.style.visibility).toBe('visible')
 
     const second = makeTrigger(240, 300, '80%')
@@ -61,9 +62,11 @@ describe('footer meter placement', () => {
     expect(first.style.width).toBe('75%')
     expect(anchor.style.left).toBe('244px')
     expect(anchor.style.top).toBe('307px')
+    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('260px')
 
     dispose()
     expect(second.style.width).toBe('80%')
+    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('')
     expect(anchor.style.visibility).toBe('hidden')
   })
 })
