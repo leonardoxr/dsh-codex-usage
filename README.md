@@ -35,9 +35,9 @@ pnpm run check
 Add it to a DSH profile from this directory:
 
 ~~~sh
-dsh plugin --profile default add .
-dsh --profile default --dump-config
-dsh --profile default web
+dsh plugin --profile web add .
+dsh --profile web --dump-config
+dsh web
 ~~~
 
 Refresh the existing Web page after the DSH host restarts. The client bundle is loaded by DSH's client-module system; a separate Vite server is neither required nor useful.
@@ -45,7 +45,7 @@ Refresh the existing Web page after the DSH host restarts. The client bundle is 
 Remove it with:
 
 ~~~sh
-dsh plugin --profile default remove dsh-codex-usage
+dsh plugin --profile web remove dsh-codex-usage
 ~~~
 
 ### Install a packed artifact
@@ -54,7 +54,7 @@ A tarball ships prebuilt Host and lazy-CJS client artifacts, avoiding install-ti
 
 ~~~sh
 pnpm pack
-dsh plugin --profile default add ./dsh-codex-usage-0.1.0.tgz
+dsh plugin --profile web add ./dsh-codex-usage-0.1.1.tgz
 ~~~
 
 For a Git-host install, pnpm 10 requires the profile to allow this package's prepare script. Pin a commit and follow the exact allowBuilds instruction printed by DSH/pnpm.
@@ -88,7 +88,7 @@ Override the whole row in the profile's cordis.patch.yml. Later layers replace a
 2. On the first read, it starts one managed codex app-server --listen stdio:// process.
 3. It performs initialize / initialized, then calls stable methods account/rateLimits/read and account/read.
 4. A strict normalizer returns quota-only data to the loopback browser route.
-5. The browser registers into settings.trigger at priority -10. DSH renders the lowest priority, so the component deliberately shadows and recreates the built-in gear/label content while adding the indicator.
+5. The browser registers an independent action in sidebar.footer.action, reserves space at the right edge of the Settings row, and leaves the built-in Settings button and its behavior untouched.
 6. The browser polls on the configured cadence and requests a coalesced refresh after a 250 ms hover debounce.
 
 The client artifact is not ordinary browser ESM. tsdown.config.ts emits DSH's required lazy-CJS registration. React and DSH UI packages remain external and resolve through DSH's client module table, preventing duplicate React runtimes.

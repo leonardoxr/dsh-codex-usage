@@ -15,5 +15,7 @@ describe('built client artifact', () => {
     })
     expect(registration?.id).toBe('dsh-codex-usage')
     expect(registration?.factory).toBeTypeOf('function')
+    expect(source).toContain('sidebar.footer.action')
+    expect(source).not.toContain('settings.trigger')
   })
 })

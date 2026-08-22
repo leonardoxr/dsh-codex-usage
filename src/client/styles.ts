@@ -1,11 +1,9 @@
 export const STYLE_ID = 'dsh-codex-usage/client'
 
 export const styles = `
-.dcu-trigger-content{display:flex;align-items:center;gap:8px;width:100%;min-width:0;position:relative}
-.dcu-trigger-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dcu-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.dcu-usage-root{display:inline-flex;position:relative;margin-left:auto;flex:none}
-.dcu-meter{width:28px;height:28px;color:var(--dsw-alias-label-secondary);background:transparent;border:0;border-radius:999px;place-items:center;display:grid;position:relative;transition:background .15s ease}
+.dcu-footer-action-anchor{box-sizing:border-box;width:28px;height:28px;visibility:hidden;position:fixed;z-index:900}
+.dcu-usage-root{display:inline-flex;position:relative;flex:none}
+.dcu-meter{width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:transparent;border:0;border-radius:999px;padding:0;place-items:center;display:grid;position:relative;transition:background .15s ease}
 .dcu-usage-root:hover .dcu-meter,.dcu-usage-root:focus-within .dcu-meter{background:var(--dsw-alias-interactive-bg-hover)}
 .dcu-ring{position:absolute;inset:2px;transform:rotate(-90deg)}
 .dcu-track{fill:none;stroke:var(--dsw-alias-border-l3);stroke-width:2}

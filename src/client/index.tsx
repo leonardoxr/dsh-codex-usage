@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import { IconSettingsOutline14, IconSettingsOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-general/client'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CodexUsageData, RateLimitSnapshot, RateLimitWindow } from '../types.js'
 import { UsageStore } from './store.js'
 import { STYLE_ID, styles } from './styles.js'
 
-export const inject = ['slots', 'locale']
+export const inject = ['slots']
 
 const store = new UsageStore()
 const RING_LENGTH = 2 * Math.PI * 9
@@ -134,7 +131,6 @@ function OpenAIUsageIndicator() {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   const [open, setOpen] = useState(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const rootRef = useRef<HTMLSpanElement | null>(null)
   const percent = useMemo(() => maxUsed(state.data), [state.data])
   const level = severity(percent)
 
@@ -149,48 +145,102 @@ function OpenAIUsageIndicator() {
     hoverTimer.current = null
   }
 
-  useEffect(() => {
-    const trigger = rootRef.current?.closest('button')
-    if (trigger === null || trigger === undefined) return () => {}
-    const focus = () => {
-      trigger.setAttribute('aria-describedby', 'dcu-usage-tooltip')
-      enter()
-    }
-    const blur = () => {
-      if (trigger.getAttribute('aria-describedby') === 'dcu-usage-tooltip') trigger.removeAttribute('aria-describedby')
-      leave()
-    }
-    trigger.addEventListener('focus', focus)
-    trigger.addEventListener('blur', blur)
-    return () => {
-      trigger.removeEventListener('focus', focus)
-      trigger.removeEventListener('blur', blur)
-      if (trigger.getAttribute('aria-describedby') === 'dcu-usage-tooltip') trigger.removeAttribute('aria-describedby')
-      if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
-    }
+  useEffect(() => () => {
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
   }, [])
 
-  return <span ref={rootRef} className="dcu-usage-root" onMouseEnter={enter} onMouseLeave={leave} onFocus={enter} onBlur={leave}>
-    <span className="dcu-meter" aria-label={`Codex usage: ${Math.round(percent)} percent used`} aria-describedby={open ? 'dcu-usage-tooltip' : undefined}>
+  return <div className="dcu-usage-root" onMouseEnter={enter} onMouseLeave={leave}>
+    <button
+      type="button"
+      className="dcu-meter"
+      aria-label={`Codex usage: ${Math.round(percent)} percent used`}
+      aria-describedby={open ? 'dcu-usage-tooltip' : undefined}
+      aria-expanded={open}
+      onFocus={enter}
+      onBlur={leave}
+      onClick={enter}
+      onKeyDown={event => {
+        if (event.key === 'Escape') {
+          leave()
+          event.currentTarget.blur()
+        }
+      }}
+    >
       <svg className="dcu-ring" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
         <circle className="dcu-track" cx="12" cy="12" r="9" />
         <circle className={`dcu-fill${level === '' ? '' : ` dcu-fill-${level}`}`} cx="12" cy="12" r="9" strokeDasharray={RING_LENGTH} strokeDashoffset={RING_LENGTH * (1 - percent / 100)} />
       </svg>
       <svg className="dcu-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={OPENAI_PATH} /></svg>
       {state.phase === 'error' && <span className="dcu-status-dot" />}
-    </span>
+    </button>
     {open && <UsagePanel data={state.data} error={state.error} loading={state.phase === 'loading'} />}
-  </span>
+  </div>
 }
 
-type TriggerProps = PropsRuntime<'settings.trigger'> & PropsLocale<'settings'>
+type FooterActionProps = PropsRuntime<'sidebar.footer.action'>
 
-export function TriggerContent({ wide, t }: TriggerProps) {
-  return <span className="dcu-trigger-content">
-    {wide ? <IconSettingsOutline16 size={16} /> : <IconSettingsOutline14 size={18} />}
-    <span className={wide ? 'dcu-trigger-label' : 'dcu-sr-only'}>{t('trigger')}</span>
-    {wide && <OpenAIUsageIndicator />}
-  </span>
+export function bindFooterMeter(anchor: HTMLDivElement): () => void {
+  const footerActions = anchor.parentElement
+  const settingsArea = footerActions?.nextElementSibling
+  if (!(footerActions instanceof HTMLElement) || !(settingsArea instanceof HTMLElement)) return () => {}
+  anchor.style.visibility = 'hidden'
+  let settingsTrigger: HTMLButtonElement | null = null
+  let previousWidth = ''
+  let resizeObserver: ResizeObserver | null = null
+
+  const position = () => {
+    if (settingsTrigger === null) return
+    const rect = settingsTrigger.getBoundingClientRect()
+    anchor.style.left = `${rect.right + 4}px`
+    anchor.style.top = `${rect.top + (rect.height - 28) / 2}px`
+    anchor.style.visibility = 'visible'
+  }
+  const releaseTrigger = () => {
+    resizeObserver?.disconnect()
+    resizeObserver = null
+    if (settingsTrigger !== null && settingsTrigger.style.width === 'calc(100% - 34px)') {
+      settingsTrigger.style.width = previousWidth
+    }
+    settingsTrigger = null
+    anchor.style.visibility = 'hidden'
+  }
+  const bindTrigger = () => {
+    const candidate = settingsArea.querySelector('button')
+    if (candidate === settingsTrigger) {
+      position()
+      return
+    }
+    releaseTrigger()
+    if (!(candidate instanceof HTMLButtonElement)) return
+    settingsTrigger = candidate
+    previousWidth = candidate.style.width
+    candidate.style.width = 'calc(100% - 34px)'
+    resizeObserver = new ResizeObserver(position)
+    resizeObserver.observe(candidate)
+    resizeObserver.observe(footerActions)
+    resizeObserver.observe(settingsArea)
+    position()
+  }
+
+  const mutationObserver = new MutationObserver(bindTrigger)
+  mutationObserver.observe(settingsArea, { childList: true, subtree: true })
+  window.addEventListener('resize', position)
+  bindTrigger()
+  return () => {
+    mutationObserver.disconnect()
+    window.removeEventListener('resize', position)
+    releaseTrigger()
+  }
+}
+
+export function FooterUsageAction({ wide }: FooterActionProps) {
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!wide || anchorRef.current === null) return () => {}
+    return bindFooterMeter(anchorRef.current)
+  }, [wide])
+  if (!wide) return null
+  return <div ref={anchorRef} className="dcu-footer-action-anchor"><OpenAIUsageIndicator /></div>
 }
 
 export function apply(ctx: ClientContext): void {
@@ -219,9 +269,10 @@ export function apply(ctx: ClientContext): void {
     }
   }, 'codex-usage: polling')
 
-  ctx.slots.inject('settings.trigger', () => ctx.slots.register({
-    name: 'settings.trigger',
-    priority: -10,
-    locale: 'settings',
-  }, TriggerContent))
+  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+    name: 'sidebar.footer.action',
+    id: 'codex-usage',
+    order: 100,
+    label: 'Codex usage',
+  }, FooterUsageAction))
 }

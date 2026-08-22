@@ -10,7 +10,7 @@ Deliver an installable DeepSeek Harness bundle that adds an OpenAI Codex plan-us
 2. **Use a Host bridge.** Browser code cannot and should not access Codex credentials. The Host owns one app-server process and a read-only DSH Web route restricted to loopback connections, local Host values, and same-origin browser signals.
 3. **Normalize by allowlist.** Only documented quota fields cross into the browser. Raw payloads and identity fields are discarded.
 4. **Honor DSH composition.** The bundle ships bundle metadata, a Cordis patch, a Host schema, client metadata, and the required lazy-CJS artifact.
-5. **Match the requested placement.** Since the sidebar Settings content is a single slot, the plugin shadows it at priority -10 and recreates the built-in gear/label before adding the meter. It does not replace the Settings shell or dialog.
+5. **Match the requested placement.** The meter uses the sidebar.footer.action seat as an independent button, reserves the right edge of the Settings row, and leaves the built-in Settings trigger and dialog untouched.
 6. **Control request volume twice.** The client debounces hover, gates attempts, and coalesces in-flight calls; the Host applies separate poll/hover freshness windows, throttles failures, and keeps its provider fence until both RPCs settle.
 
 ## Delivery phases
