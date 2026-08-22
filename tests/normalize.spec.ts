@@ -30,7 +30,7 @@ describe('normalizeUsage', () => {
     expect(value.fetchedAt).toBe(1234)
     expect(value.rateLimits.primary?.usedPercent).toBe(100)
     expect(value.rateLimits.secondary?.usedPercent).toBe(0)
-    expect(value.rateLimitsByLimitId?.spark?.primary?.usedPercent).toBe(25.5)
+    expect(value.rateLimitsByLimitId).toBeNull()
     expect(value.rateLimits.individualLimit).toEqual({ limit: '100', used: '25', remainingPercent: 75, resetsAt: 1_800_000_000 })
     expect(value.account).toEqual({ type: 'chatgpt', planType: 'plus' })
     expect(JSON.stringify(value)).not.toContain('private@example.com')
