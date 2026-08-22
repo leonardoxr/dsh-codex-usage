@@ -1,0 +1,8 @@
+- insert:
+    - id: codex-usage
+      name: dsh-codex-usage
+      config:
+        refreshIntervalMs: 300000
+        hoverRefreshMinAgeMs: 30000
+        requestTimeoutMs: 15000
+        codexCommand: codex

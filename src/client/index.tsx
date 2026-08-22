@@ -1,0 +1,227 @@
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { IconSettingsOutline14, IconSettingsOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-general/client'
+import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { CodexUsageData, RateLimitSnapshot, RateLimitWindow } from '../types.js'
+import { UsageStore } from './store.js'
+import { STYLE_ID, styles } from './styles.js'
+
+export const inject = ['slots', 'locale']
+
+const store = new UsageStore()
+const RING_LENGTH = 2 * Math.PI * 9
+const OPENAI_PATH = 'M9.205 8.658v-2.26c0-.19.072-.333.238-.428l4.543-2.616c.619-.357 1.356-.523 2.117-.523 2.854 0 4.662 2.212 4.662 4.566 0 .167 0 .357-.024.547l-4.71-2.759a.797.797 0 00-.856 0l-5.97 3.473zm10.609 8.8V12.06c0-.333-.143-.57-.429-.737l-5.97-3.473 1.95-1.118a.433.433 0 01.476 0l4.543 2.617c1.309.76 2.189 2.378 2.189 3.948 0 1.808-1.07 3.473-2.76 4.163zM7.802 12.703l-1.95-1.142c-.167-.095-.239-.238-.239-.428V5.899c0-2.545 1.95-4.472 4.591-4.472 1 0 1.927.333 2.712.928L8.23 5.067c-.285.166-.428.404-.428.737v6.898zM12 15.128l-2.795-1.57v-3.33L12 8.658l2.795 1.57v3.33L12 15.128zm1.796 7.23c-1 0-1.927-.332-2.712-.927l4.686-2.712c.285-.166.428-.404.428-.737v-6.898l1.974 1.142c.167.095.238.238.238.428v5.233c0 2.545-1.974 4.472-4.614 4.472zm-5.637-5.303l-4.544-2.617c-1.308-.761-2.188-2.378-2.188-3.948A4.482 4.482 0 014.21 6.327v5.423c0 .333.143.571.428.738l5.947 3.449-1.95 1.118a.432.432 0 01-.476 0zm-.262 3.9c-2.688 0-4.662-2.021-4.662-4.519 0-.19.024-.38.047-.57l4.686 2.71c.286.167.571.167.856 0l5.97-3.448v2.26c0 .19-.07.333-.237.428l-4.543 2.616c-.619.357-1.356.523-2.117.523zm5.899 2.83a5.947 5.947 0 005.827-4.756C22.287 18.339 24 15.84 24 13.296c0-1.665-.713-3.282-1.998-4.448.119-.5.19-.999.19-1.498 0-3.401-2.759-5.947-5.946-5.947-.642 0-1.26.095-1.88.31A5.962 5.962 0 0010.205 0a5.947 5.947 0 00-5.827 4.757C1.713 5.447 0 7.945 0 10.49c0 1.666.713 3.283 1.998 4.448-.119.5-.19 1-.19 1.499 0 3.401 2.759 5.946 5.946 5.946.642 0 1.26-.095 1.88-.309a5.96 5.96 0 004.162 1.713z'
+
+function allSnapshots(data: CodexUsageData | null): Array<[string, RateLimitSnapshot]> {
+  if (data === null) return []
+  const buckets = data.rateLimitsByLimitId
+  if (buckets !== null && Object.keys(buckets).length > 0) return Object.entries(buckets)
+  return [[data.rateLimits.limitId ?? 'codex', data.rateLimits]]
+}
+
+function maxUsed(data: CodexUsageData | null): number {
+  return allSnapshots(data).reduce((maximum, [, snapshot]) => Math.max(
+    maximum,
+    snapshot.primary?.usedPercent ?? 0,
+    snapshot.secondary?.usedPercent ?? 0,
+  ), 0)
+}
+
+function severity(percent: number): '' | 'warn' | 'critical' {
+  return percent >= 90 ? 'critical' : percent >= 70 ? 'warn' : ''
+}
+
+function durationLabel(minutes: number | null): string {
+  if (minutes === null) return 'Usage window'
+  if (minutes < 60) return `${minutes} min window`
+  const hours = minutes / 60
+  if (hours < 48) return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hour window`
+  const days = hours / 24
+  return `${Number.isInteger(days) ? days : days.toFixed(1)} day window`
+}
+
+function resetLabel(timestamp: number | null): string {
+  if (timestamp === null) return 'Reset time unavailable'
+  const date = new Date(timestamp * 1000)
+  const relativeMs = date.getTime() - Date.now()
+  const absolute = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+  if (relativeMs <= 0) return `Reset due · ${absolute}`
+  const minutes = Math.ceil(relativeMs / 60_000)
+  const relative = minutes < 60
+    ? `in ${minutes}m`
+    : minutes < 2880
+      ? `in ${Math.ceil(minutes / 60)}h`
+      : `in ${Math.ceil(minutes / 1440)}d`
+  return `Resets ${relative} · ${absolute}`
+}
+
+function titleCase(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return 'Unknown'
+  return value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase())
+}
+
+function UsageWindow({ value }: { value: RateLimitWindow }) {
+  const level = severity(value.usedPercent)
+  return <div className="dcu-window">
+    <div className="dcu-window-head">
+      <span>{durationLabel(value.windowDurationMins)}</span>
+      <span className="dcu-percent">{Math.round(value.usedPercent)}% used</span>
+    </div>
+    <div className="dcu-bar" aria-hidden="true">
+      <div className={`dcu-bar-fill${level === '' ? '' : ` dcu-bar-${level}`}`} style={{ width: `${value.usedPercent}%` }} />
+    </div>
+    <div className="dcu-reset">{resetLabel(value.resetsAt)}</div>
+  </div>
+}
+
+function Bucket({ id, snapshot }: { id: string; snapshot: RateLimitSnapshot }) {
+  const windows = [snapshot.primary, snapshot.secondary].filter((item): item is RateLimitWindow => item !== null)
+  return <section className="dcu-bucket">
+    <div className="dcu-bucket-title">
+      <span>{snapshot.limitName ?? titleCase(id)}</span>
+      {snapshot.rateLimitReachedType !== null && <span>{titleCase(snapshot.rateLimitReachedType)}</span>}
+    </div>
+    {windows.length === 0
+      ? <div className="dcu-empty">No rolling-window details reported.</div>
+      : windows.map((value, index) => <UsageWindow key={`${value.windowDurationMins ?? 'unknown'}-${index}`} value={value} />)}
+    {(snapshot.planType !== null || snapshot.credits !== null || snapshot.individualLimit !== null || snapshot.spendControlReached !== null) && <dl className="dcu-bucket-meta">
+      {snapshot.planType !== null && <><dt>Plan</dt><dd>{titleCase(snapshot.planType)}</dd></>}
+      {snapshot.credits !== null && <><dt>Credits</dt><dd>{snapshot.credits.unlimited ? 'Unlimited' : (snapshot.credits.balance ?? (snapshot.credits.hasCredits ? 'Available' : 'None'))}</dd></>}
+      {snapshot.individualLimit !== null && <><dt>Spend used</dt><dd>{snapshot.individualLimit.used} / {snapshot.individualLimit.limit}</dd><dt>Spend remaining</dt><dd>{Math.round(snapshot.individualLimit.remainingPercent)}%</dd><dt>Spend resets</dt><dd>{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(snapshot.individualLimit.resetsAt * 1000))}</dd></>}
+      {snapshot.spendControlReached !== null && <><dt>Spend control</dt><dd>{snapshot.spendControlReached ? 'Reached' : 'Available'}</dd></>}
+    </dl>}
+  </section>
+}
+
+function UsagePanel({ data, error, loading }: { data: CodexUsageData | null; error: string | null; loading: boolean }) {
+  const buckets = allSnapshots(data)
+  const defaultSnapshot = data?.rateLimits ?? null
+  const plan = data?.account?.planType ?? defaultSnapshot?.planType
+  const resetCredits = data?.rateLimitResetCredits
+  const fetched = data === null ? null : new Date(data.fetchedAt)
+  return <div className="dcu-panel" role="tooltip" id="dcu-usage-tooltip" onClick={event => { event.stopPropagation() }}>
+    <div className="dcu-panel-header">
+      <span className={`dcu-live${error === null ? '' : ' dcu-live-stale'}`} />
+      <div>
+        <div className="dcu-panel-title">Codex plan usage</div>
+        <div className="dcu-panel-subtitle">{titleCase(plan)} · OpenAI Codex</div>
+      </div>
+    </div>
+    {error !== null && <div className="dcu-error">{error}{data !== null ? ' — showing the last successful update.' : ''}</div>}
+    {loading && data === null && <div className="dcu-spinner" aria-label="Loading Codex usage" />}
+    {!loading && data === null && error === null && <div className="dcu-empty">Hover to load usage details.</div>}
+    {buckets.map(([id, snapshot]) => <Bucket key={id} id={id} snapshot={snapshot} />)}
+    {resetCredits !== null && resetCredits !== undefined && <dl className="dcu-meta"><dt>Reset credits</dt><dd>{resetCredits.availableCount}</dd></dl>}
+    {resetCredits?.credits !== null && resetCredits?.credits !== undefined && resetCredits.credits.length > 0 && <section className="dcu-credit-list">
+      <div className="dcu-credit-heading">Available reset credits</div>
+      {resetCredits.credits.map((credit, index) => <div className="dcu-credit" key={`${credit.grantedAt}-${index}`}>
+        <div><strong>{credit.title ?? titleCase(credit.resetType)}</strong><span>{titleCase(credit.status)}</span></div>
+        {credit.description !== null && <p>{credit.description}</p>}
+        <small>{credit.expiresAt === null ? 'No expiry reported' : `Expires ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(credit.expiresAt * 1000))}`}</small>
+      </div>)}
+    </section>}
+    <div className="dcu-footer">
+      <span>{fetched === null ? 'Not updated yet' : `Updated ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(fetched)}`}</span>
+      <span>{loading ? 'Refreshing…' : 'Hover refreshes'}</span>
+    </div>
+  </div>
+}
+
+function OpenAIUsageIndicator() {
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
+  const [open, setOpen] = useState(false)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rootRef = useRef<HTMLSpanElement | null>(null)
+  const percent = useMemo(() => maxUsed(state.data), [state.data])
+  const level = severity(percent)
+
+  const enter = () => {
+    setOpen(true)
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
+    hoverTimer.current = setTimeout(() => { void store.refresh(true) }, 250)
+  }
+  const leave = () => {
+    setOpen(false)
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
+    hoverTimer.current = null
+  }
+
+  useEffect(() => {
+    const trigger = rootRef.current?.closest('button')
+    if (trigger === null || trigger === undefined) return () => {}
+    const focus = () => {
+      trigger.setAttribute('aria-describedby', 'dcu-usage-tooltip')
+      enter()
+    }
+    const blur = () => {
+      if (trigger.getAttribute('aria-describedby') === 'dcu-usage-tooltip') trigger.removeAttribute('aria-describedby')
+      leave()
+    }
+    trigger.addEventListener('focus', focus)
+    trigger.addEventListener('blur', blur)
+    return () => {
+      trigger.removeEventListener('focus', focus)
+      trigger.removeEventListener('blur', blur)
+      if (trigger.getAttribute('aria-describedby') === 'dcu-usage-tooltip') trigger.removeAttribute('aria-describedby')
+      if (hoverTimer.current !== null) clearTimeout(hoverTimer.current)
+    }
+  }, [])
+
+  return <span ref={rootRef} className="dcu-usage-root" onMouseEnter={enter} onMouseLeave={leave} onFocus={enter} onBlur={leave}>
+    <span className="dcu-meter" aria-label={`Codex usage: ${Math.round(percent)} percent used`} aria-describedby={open ? 'dcu-usage-tooltip' : undefined}>
+      <svg className="dcu-ring" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <circle className="dcu-track" cx="12" cy="12" r="9" />
+        <circle className={`dcu-fill${level === '' ? '' : ` dcu-fill-${level}`}`} cx="12" cy="12" r="9" strokeDasharray={RING_LENGTH} strokeDashoffset={RING_LENGTH * (1 - percent / 100)} />
+      </svg>
+      <svg className="dcu-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={OPENAI_PATH} /></svg>
+      {state.phase === 'error' && <span className="dcu-status-dot" />}
+    </span>
+    {open && <UsagePanel data={state.data} error={state.error} loading={state.phase === 'loading'} />}
+  </span>
+}
+
+type TriggerProps = PropsRuntime<'settings.trigger'> & PropsLocale<'settings'>
+
+export function TriggerContent({ wide, t }: TriggerProps) {
+  return <span className="dcu-trigger-content">
+    {wide ? <IconSettingsOutline16 size={16} /> : <IconSettingsOutline14 size={18} />}
+    <span className={wide ? 'dcu-trigger-label' : 'dcu-sr-only'}>{t('trigger')}</span>
+    {wide && <OpenAIUsageIndicator />}
+  </span>
+}
+
+export function apply(ctx: ClientContext): void {
+  ctx.effect(() => {
+    if (document.querySelector(`style[data-plugin-css="${STYLE_ID}"]`) !== null) return () => {}
+    const tag = document.createElement('style')
+    tag.dataset.plugin = 'dsh-codex-usage'
+    tag.dataset.pluginCss = STYLE_ID
+    tag.textContent = styles
+    document.head.appendChild(tag)
+    return () => { tag.remove() }
+  }, 'codex-usage: styles')
+
+  ctx.effect(() => {
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const poll = async () => {
+      await store.refresh(false)
+      if (stopped) return
+      timer = setTimeout(() => { void poll() }, store.getSnapshot().policy.refreshIntervalMs)
+    }
+    void poll()
+    return () => {
+      stopped = true
+      if (timer !== null) clearTimeout(timer)
+    }
+  }, 'codex-usage: polling')
+
+  ctx.slots.inject('settings.trigger', () => ctx.slots.register({
+    name: 'settings.trigger',
+    priority: -10,
+    locale: 'settings',
+  }, TriggerContent))
+}
