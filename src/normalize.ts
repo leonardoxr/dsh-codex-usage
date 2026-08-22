@@ -10,6 +10,10 @@ import type {
 
 type JsonObject = Record<string, unknown>
 
+function isSparkBucket(id: string, snapshot: RateLimitSnapshot): boolean {
+  return /spark/i.test(id) || /spark/i.test(snapshot.limitId ?? '') || /spark/i.test(snapshot.limitName ?? '')
+}
+
 function object(value: unknown): JsonObject | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as JsonObject
@@ -108,7 +112,14 @@ export function normalizeUsage(rateResult: unknown, accountResult: unknown, fetc
   const bucketsRaw = object(rate.rateLimitsByLimitId)
   const buckets = bucketsRaw === null
     ? null
-    : Object.fromEntries(Object.entries(bucketsRaw).map(([key, value]) => [key, normalizeSnapshot(value)]))
+    : (() => {
+        const filtered = Object.fromEntries(
+          Object.entries(bucketsRaw)
+            .map(([key, value]) => [key, normalizeSnapshot(value)] as const)
+            .filter(([key, snapshot]) => !isSparkBucket(key, snapshot)),
+        )
+        return Object.keys(filtered).length > 0 ? filtered : null
+      })()
 
   return {
     source: 'codex-app-server',
