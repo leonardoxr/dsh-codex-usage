@@ -36,8 +36,12 @@ describe('footer meter placement', () => {
     const foot = document.createElement('div')
     const footerActions = document.createElement('div')
     const settingsArea = document.createElement('div')
+    const slotWrapper = document.createElement('div')
+    slotWrapper.dataset.slot = 'sidebar.footer.action'
+    slotWrapper.style.display = 'contents'
     const anchor = document.createElement('div')
-    footerActions.append(anchor)
+    slotWrapper.append(anchor)
+    footerActions.append(slotWrapper)
     foot.append(footerActions, settingsArea)
     document.body.append(foot)
 

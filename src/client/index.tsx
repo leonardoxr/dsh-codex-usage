@@ -180,7 +180,8 @@ function OpenAIUsageIndicator() {
 type FooterActionProps = PropsRuntime<'sidebar.footer.action'>
 
 export function bindFooterMeter(anchor: HTMLDivElement): () => void {
-  const footerActions = anchor.parentElement
+  const slotWrapper = anchor.closest('[data-slot="sidebar.footer.action"]')
+  const footerActions = slotWrapper?.parentElement ?? anchor.parentElement
   const settingsArea = footerActions?.nextElementSibling
   if (!(footerActions instanceof HTMLElement) || !(settingsArea instanceof HTMLElement)) return () => {}
   anchor.style.visibility = 'hidden'
