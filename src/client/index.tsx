@@ -16,7 +16,7 @@ function isSparkBucket(id: string, snapshot: RateLimitSnapshot): boolean {
   return /spark/i.test(id) || /spark/i.test(snapshot.limitId ?? '') || /spark/i.test(snapshot.limitName ?? '')
 }
 
-function allSnapshots(data: CodexUsageData | null): Array<[string, RateLimitSnapshot]> {
+export function usageSnapshots(data: CodexUsageData | null): Array<[string, RateLimitSnapshot]> {
   if (data === null) return []
   const buckets = data.rateLimitsByLimitId
   if (buckets !== null && Object.keys(buckets).length > 0) {
@@ -27,12 +27,12 @@ function allSnapshots(data: CodexUsageData | null): Array<[string, RateLimitSnap
     : [[data.rateLimits.limitId ?? 'codex', data.rateLimits]]
 }
 
-function maxUsed(data: CodexUsageData | null): number {
-  return allSnapshots(data).reduce((maximum, [, snapshot]) => Math.max(
-    maximum,
-    snapshot.primary?.usedPercent ?? 0,
-    snapshot.secondary?.usedPercent ?? 0,
-  ), 0)
+export function mainPlanUsedPercent(data: CodexUsageData | null): number {
+  if (data === null || isSparkBucket(data.rateLimits.limitId ?? 'codex', data.rateLimits)) return 0
+  return Math.max(
+    data.rateLimits.primary?.usedPercent ?? 0,
+    data.rateLimits.secondary?.usedPercent ?? 0,
+  )
 }
 
 function severity(percent: number): '' | 'warn' | 'critical' {
@@ -102,7 +102,7 @@ function Bucket({ id, snapshot }: { id: string; snapshot: RateLimitSnapshot }) {
 }
 
 function UsagePanel({ data, error, loading }: { data: CodexUsageData | null; error: string | null; loading: boolean }) {
-  const buckets = allSnapshots(data)
+  const buckets = usageSnapshots(data)
   const defaultSnapshot = data?.rateLimits ?? null
   const plan = data?.account?.planType ?? defaultSnapshot?.planType
   const resetCredits = data?.rateLimitResetCredits
@@ -140,7 +140,7 @@ export function OpenAIUsageIndicator() {
   const [open, setOpen] = useState(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const percent = useMemo(() => maxUsed(state.data), [state.data])
+  const percent = useMemo(() => mainPlanUsedPercent(state.data), [state.data])
   const level = severity(percent)
 
   const enter = () => {
