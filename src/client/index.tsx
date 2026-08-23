@@ -1,12 +1,24 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CodexUsageData, RateLimitSnapshot, RateLimitWindow } from '../types.js'
+import {
+  decodeCodexUsageSettings,
+  parseSettingsDraft,
+  saveCodexUsageSettings,
+  settingsEqual,
+  settingsToDraft,
+  type CodexUsageSettings,
+  type SettingsDraft,
+  type SettingsField,
+} from './settings.js'
 import { UsageStore } from './store.js'
 import { STYLE_ID, styles } from './styles.js'
 
-export const inject = ['slots']
+export const inject = ['slots', 'settingsScope']
 
 const store = new UsageStore()
 const RING_LENGTH = 2 * Math.PI * 9
@@ -200,6 +212,167 @@ export function OpenAIUsageIndicator() {
   </div>
 }
 
+interface SettingsCardProps {
+  scope: SettingsScope<CodexUsageSettings>
+}
+
+interface SettingsDraftState {
+  value: SettingsDraft
+  revision: number
+}
+
+interface SettingsFieldSpec {
+  key: SettingsField
+  label: string
+  hint: string
+  minimum?: number
+}
+
+const SETTINGS_FIELDS: SettingsFieldSpec[] = [
+  {
+    key: 'refreshIntervalMs',
+    label: 'Background refresh interval',
+    hint: 'Milliseconds between normal usage polls. Minimum 60000.',
+    minimum: 60_000,
+  },
+  {
+    key: 'hoverRefreshMinAgeMs',
+    label: 'Hover refresh minimum age',
+    hint: 'Milliseconds before hover may force another provider read. Minimum 5000.',
+    minimum: 5_000,
+  },
+  {
+    key: 'requestTimeoutMs',
+    label: 'Request timeout',
+    hint: 'Milliseconds allowed for each Codex app-server request. Minimum 1000.',
+    minimum: 1_000,
+  },
+  {
+    key: 'codexCommand',
+    label: 'Codex command',
+    hint: 'Executable name or absolute path used to start Codex.',
+  },
+]
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
+}
+
+export function CodexUsageSettingsCard({ scope }: SettingsCardProps): JSX.Element | null {
+  const subscribe = useCallback((listener: () => void) => scope.subscribe(listener), [scope])
+  const getSnapshot = useCallback(() => scope.getSnapshot(), [scope])
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<SettingsDraftState | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (snapshot.status === 'unavailable') return null
+  const current = snapshot.value
+  const visible = draft?.value ?? (current === undefined ? undefined : settingsToDraft(current))
+  let parsed: CodexUsageSettings | undefined
+  let validationError: string | null = null
+  if (visible !== undefined) {
+    try {
+      parsed = parseSettingsDraft(visible)
+    } catch (cause) {
+      validationError = errorMessage(cause)
+    }
+  }
+  const dirty = draft !== null
+  const changed = parsed !== undefined && current !== undefined && !settingsEqual(parsed, current)
+  const disabled = !snapshot.writable || saving || current === undefined || snapshot.revision === undefined
+
+  const updateField = (key: SettingsField, value: string): void => {
+    if (disabled || current === undefined || snapshot.revision === undefined) return
+    const revision = snapshot.revision
+    setError(null)
+    setDraft(previous => {
+      const next = { ...(previous?.value ?? settingsToDraft(current)), [key]: value }
+      try {
+        if (settingsEqual(parseSettingsDraft(next), current)) return null
+      } catch {
+        // Invalid drafts stay staged so the card can explain what must be fixed.
+      }
+      return { value: next, revision: previous?.revision ?? revision }
+    })
+  }
+
+  const discard = (): void => {
+    setDraft(null)
+    setError(null)
+  }
+
+  const save = async (): Promise<void> => {
+    if (draft === null || parsed === undefined || !changed || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await saveCodexUsageSettings(scope, parsed, draft.revision)
+      setDraft(null)
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <li className="dcu-settings-card" data-open={open}>
+    <button
+      type="button"
+      className="dcu-settings-header"
+      aria-expanded={open}
+      onClick={() => { setOpen(value => !value) }}
+    >
+      <span className="dcu-settings-heading">
+        <span className="dcu-settings-title">Codex usage</span>
+        <span className="dcu-settings-description">Configure provider refresh and process startup limits.</span>
+      </span>
+      {dirty ? <span className="dcu-settings-pending">Unsaved</span> : null}
+      <svg className="dcu-settings-chevron" viewBox="0 0 20 20" aria-hidden="true">
+        <path d="m5 7.5 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+    {open ? <div className="dcu-settings-body">
+      <p className="dcu-settings-notice">Saved Codex usage settings take effect after DSH Web restarts.</p>
+      {visible === undefined
+        ? <p className="dcu-settings-status">Loading Codex usage settings…</p>
+        : <>
+          {SETTINGS_FIELDS.map(spec => <label className="dcu-settings-field" key={spec.key}>
+            <span className="dcu-settings-copy">
+              <span className="dcu-settings-label">{spec.label}</span>
+              <span className="dcu-settings-hint">{spec.hint}</span>
+            </span>
+            <input
+              className="dcu-settings-input"
+              type={spec.minimum === undefined ? 'text' : 'number'}
+              min={spec.minimum}
+              step={spec.minimum === undefined ? undefined : 1}
+              value={visible[spec.key]}
+              disabled={disabled}
+              aria-label={spec.label}
+              onChange={event => { updateField(spec.key, event.currentTarget.value) }}
+            />
+          </label>)}
+          <div className="dcu-settings-footer">
+            <p className="dcu-settings-error" role={error !== null || validationError !== null ? 'alert' : undefined}>
+              {error ?? validationError ?? ''}
+            </p>
+            <button type="button" className="dcu-settings-button" disabled={!dirty || saving} onClick={discard}>Discard</button>
+            <button
+              type="button"
+              className="dcu-settings-button dcu-settings-save"
+              disabled={!dirty || !changed || validationError !== null || saving || !snapshot.writable}
+              onClick={() => { void save() }}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </>}
+    </div> : null}
+  </li>
+}
+
 type FooterActionProps = PropsRuntime<'sidebar.footer.action'>
 
 export function bindFooterMeter(anchor: HTMLDivElement): () => void {
@@ -271,6 +444,11 @@ export function FooterUsageAction({ wide }: FooterActionProps) {
 }
 
 export function apply(ctx: ClientContext): void {
+  const settingsScope = ctx.settingsScope.bind<CodexUsageSettings>({
+    namespace: 'codex-usage',
+    decode: decodeCodexUsageSettings,
+  })
+
   ctx.effect(() => {
     if (document.querySelector(`style[data-plugin-css="${STYLE_ID}"]`) !== null) return () => {}
     const tag = document.createElement('style')
@@ -295,6 +473,12 @@ export function apply(ctx: ClientContext): void {
       if (timer !== null) clearTimeout(timer)
     }
   }, 'codex-usage: polling')
+
+  const SettingsCard = (): JSX.Element | null => <CodexUsageSettingsCard scope={settingsScope} />
+  ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+    name: 'settings.plugin.item',
+    key: 'codex-usage',
+  }, SettingsCard))
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
     name: 'sidebar.footer.action',

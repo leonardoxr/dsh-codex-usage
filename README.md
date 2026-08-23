@@ -61,6 +61,8 @@ For a Git-host install, pnpm 10 requires the profile to allow this package's pre
 
 ## Configuration
 
+All four fields are available in **Settings → Plugins → Codex usage**. Changes are staged locally until Save, are persisted through DSH Settings, and take effect after DSH Web restarts. The profile row remains the base configuration beneath saved user overrides.
+
 The bundle inserts this row:
 
 ~~~yaml
@@ -73,7 +75,7 @@ The bundle inserts this row:
     codexCommand: codex
 ~~~
 
-Override the whole row in the profile's cordis.patch.yml. Later layers replace a row's complete config value.
+Override the whole row in the profile's cordis.patch.yml to change the composition-layer base. Later layers replace a row's complete config value; saved Settings UI values override that base.
 
 | Field | Default | Meaning |
 | --- | ---: | --- |

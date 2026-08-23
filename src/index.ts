@@ -1,11 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
+import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { UsageService } from './usage-service.js'
 
 export const name = 'dsh-codex-usage'
-export const inject = ['webServer']
+export const SETTINGS_NAMESPACE = settingsNamespace('codex-usage')
+export const inject = ['webServer', 'settings'] as const
 
 export interface Config {
   refreshIntervalMs: number
@@ -20,6 +22,21 @@ export const Config: Schema<Config> = Schema.object({
   requestTimeoutMs: Schema.natural().min(1_000).default(15_000),
   codexCommand: Schema.string().default('codex'),
 })
+
+export function assertConfig(config: Config): void {
+  if (!Number.isSafeInteger(config.refreshIntervalMs) || config.refreshIntervalMs < 60_000) {
+    throw new Error('dsh-codex-usage: refreshIntervalMs must be an integer of at least 60000')
+  }
+  if (!Number.isSafeInteger(config.hoverRefreshMinAgeMs) || config.hoverRefreshMinAgeMs < 5_000) {
+    throw new Error('dsh-codex-usage: hoverRefreshMinAgeMs must be an integer of at least 5000')
+  }
+  if (!Number.isSafeInteger(config.requestTimeoutMs) || config.requestTimeoutMs < 1_000) {
+    throw new Error('dsh-codex-usage: requestTimeoutMs must be an integer of at least 1000')
+  }
+  if (config.codexCommand.trim() === '') {
+    throw new Error('dsh-codex-usage: codexCommand must not be empty')
+  }
+}
 
 const ROUTE = '/api/plugins/codex-usage'
 
@@ -76,7 +93,15 @@ function writeJson(res: ServerResponse, status: number, body: unknown): void {
 }
 
 export function apply(ctx: Context, config: Config): void {
-  const usage = new UsageService(config)
+  assertConfig(config)
+  const settings = ctx.settings.register(SETTINGS_NAMESPACE, Config, {
+    base: config,
+    applies: 'restart',
+    validate: assertConfig,
+  })
+  const active = settings.get()
+  assertConfig(active)
+  const usage = new UsageService(active)
   ctx.effect(() => () => { usage.dispose() }, 'codex-usage: app-server')
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
