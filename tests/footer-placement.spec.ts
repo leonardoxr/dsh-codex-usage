@@ -83,8 +83,8 @@ describe('footer meter placement', () => {
       anchor.dataset.dshUsageFooterAction = provider
       return anchor
     }
-    const first = makeAnchor('claude')
-    const second = makeAnchor('codex')
+    const first = makeAnchor('codex')
+    const second = makeAnchor('claude')
     slotWrapper.append(first, second)
     footerActions.append(slotWrapper)
     foot.append(footerActions, settingsArea)
@@ -96,8 +96,8 @@ describe('footer meter placement', () => {
     settingsArea.append(trigger)
     await vi.waitFor(() => {
       expect(trigger.style.width).toBe('calc(100% - 68px)')
-      expect(first.style.left).toBe('204px')
-      expect(second.style.left).toBe('236px')
+      expect(second.style.left).toBe('204px')
+      expect(first.style.left).toBe('236px')
     })
 
     disposeFirst()

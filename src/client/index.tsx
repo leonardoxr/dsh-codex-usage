@@ -189,6 +189,7 @@ export function OpenAIUsageIndicator() {
       type="button"
       className="dcu-meter"
       aria-label={`Codex usage: ${Math.round(percent)} percent used`}
+      title="Codex usage"
       aria-describedby={open ? 'dcu-usage-tooltip' : undefined}
       aria-expanded={open}
       onFocus={enter}
@@ -443,7 +444,15 @@ function createFooterCoordinator(footerActions: HTMLElement): FooterCoordinator 
       resizeObserver.observe(footerActions)
       resizeObserver.observe(settingsArea)
     }
+    // Keep the footer order stable even when providers mount asynchronously.
+    // Claude is the first lane, Codex the second; unknown providers retain DOM order.
+    const providerRank = (anchor: HTMLElement): number => {
+      const provider = anchor.dataset.dshUsageFooterAction
+      return provider === 'claude' ? 0 : provider === 'codex' ? 1 : 2
+    }
     current.sort((a, b) => {
+      const rankDifference = providerRank(a) - providerRank(b)
+      if (rankDifference !== 0) return rankDifference
       if (a === b) return 0
       return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
     })
