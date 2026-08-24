@@ -69,4 +69,46 @@ describe('footer meter placement', () => {
     expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('')
     expect(anchor.style.visibility).toBe('hidden')
   })
+
+  it('coordinates two provider meters without overlap', async () => {
+    vi.stubGlobal('ResizeObserver', TestResizeObserver)
+    const foot = document.createElement('div')
+    const footerActions = document.createElement('div')
+    const settingsArea = document.createElement('div')
+    const makeSlot = (provider: string) => {
+      const slotWrapper = document.createElement('div')
+      slotWrapper.dataset.slot = 'sidebar.footer.action'
+      slotWrapper.style.display = 'contents'
+      const anchor = document.createElement('div')
+      anchor.dataset.dshUsageFooterAction = provider
+      slotWrapper.append(anchor)
+      return { slotWrapper, anchor }
+    }
+    const first = makeSlot('claude')
+    const second = makeSlot('codex')
+    footerActions.append(first.slotWrapper, second.slotWrapper)
+    foot.append(footerActions, settingsArea)
+    document.body.append(foot)
+
+    const disposeFirst = bindFooterMeter(first.anchor)
+    const disposeSecond = bindFooterMeter(second.anchor)
+    const trigger = makeTrigger(200, 400, '75%')
+    settingsArea.append(trigger)
+    await vi.waitFor(() => {
+      expect(trigger.style.width).toBe('calc(100% - 68px)')
+      expect(first.anchor.style.left).toBe('204px')
+      expect(second.anchor.style.left).toBe('236px')
+    })
+
+    disposeFirst()
+    first.slotWrapper.remove()
+    await vi.waitFor(() => {
+      expect(trigger.style.width).toBe('calc(100% - 34px)')
+      expect(second.anchor.style.left).toBe('204px')
+    })
+
+    disposeSecond()
+    second.slotWrapper.remove()
+    expect(trigger.style.width).toBe('75%')
+  })
 })

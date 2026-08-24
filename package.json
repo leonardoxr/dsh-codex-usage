@@ -1,6 +1,6 @@
 {
   "name": "dsh-codex-usage",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "OpenAI Codex plan usage indicator for DeepSeek Harness",
   "type": "module",
   "main": "lib/index.js",
