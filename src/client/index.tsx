@@ -207,7 +207,6 @@ export function OpenAIUsageIndicator() {
         <circle className={`dcu-fill${level === '' ? '' : ` dcu-fill-${level}`}`} cx="12" cy="12" r="9" strokeDasharray={RING_LENGTH} strokeDashoffset={RING_LENGTH * (1 - percent / 100)} />
       </svg>
       <svg className="dcu-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={OPENAI_PATH} /></svg>
-      {state.phase === 'error' && <span className="dcu-status-dot" />}
     </button>
     {open && <UsagePanel data={state.data} error={state.error} loading={state.phase === 'loading'} />}
   </div>
