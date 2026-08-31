@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { UsageService } from './usage-service.js'
 
 export const name = 'dsh-codex-usage'
-export const SETTINGS_NAMESPACE = settingsNamespace('codex-usage')
+export const SETTINGS_NAMESPACE = 'codex-usage' as const
 export const inject = ['webServer', 'settings'] as const
 
 export interface Config {

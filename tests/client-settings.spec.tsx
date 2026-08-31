@@ -3,7 +3,9 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { apply, CodexUsageSettingsCard } from '../src/client/index.js'
 import {
   buildSettingsWritePlan,

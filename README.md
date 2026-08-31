@@ -21,7 +21,7 @@ The plugin preserves the standard Settings gear and label while adding a context
 
 - Node.js 20 or newer
 - pnpm 10
-- DeepSeek Harness 0.1.1-rc.2 or compatible
+- DeepSeek Harness 0.1.2-alpha.2 or compatible
 - A recent OpenAI Codex CLI with the stable app-server API (tested with Codex CLI 0.149.0)
 - Codex signed in with a ChatGPT plan (run codex login)
 

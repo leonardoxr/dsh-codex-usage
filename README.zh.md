@@ -21,7 +21,7 @@
 
 - Node.js 20 或更新版本
 - pnpm 10
-- DeepSeek Harness 0.1.1-rc.2 或兼容版本
+- DeepSeek Harness 0.1.2-alpha.2 或兼容版本
 - 具有稳定 app-server API 的较新 OpenAI Codex CLI（已使用 Codex CLI 0.149.0 测试）
 - Codex 已使用 ChatGPT 套餐登录（运行 codex login）
 
