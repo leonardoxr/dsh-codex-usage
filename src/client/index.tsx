@@ -456,10 +456,13 @@ function createFooterCoordinator(footerActions: HTMLElement): FooterCoordinator 
       if (a === b) return 0
       return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
     })
-    candidate.style.width = 'calc(100% - ' + (34 * current.length) + 'px)'
+    // Reserve lanes inside the Settings row instead of placing meters after its
+    // right edge (which can be the sidebar boundary). Measure that boundary
+    // before narrowing the trigger, then right-align every meter within it.
     const rect = candidate.getBoundingClientRect()
+    candidate.style.width = 'calc(100% - ' + (34 * current.length) + 'px)'
     current.forEach((anchor, index) => {
-      const left = rect.right + 4 + index * 32
+      const left = rect.right - 28 - (current.length - 1 - index) * 32
       anchor.style.left = String(left) + 'px'
       anchor.style.top = String(rect.top + (rect.height - 28) / 2) + 'px'
       const available = String(Math.max(0, left + 28 - 12)) + 'px'

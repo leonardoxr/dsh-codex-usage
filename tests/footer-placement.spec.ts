@@ -51,18 +51,18 @@ describe('footer meter placement', () => {
     const first = makeTrigger(200, 400, '75%')
     settingsArea.append(first)
     await vi.waitFor(() => { expect(first.style.width).toBe('calc(100% - 34px)') })
-    expect(anchor.style.left).toBe('204px')
+    expect(anchor.style.left).toBe('172px')
     expect(anchor.style.top).toBe('407px')
-    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('220px')
+    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('188px')
     expect(anchor.style.visibility).toBe('visible')
 
     const second = makeTrigger(240, 300, '80%')
     first.replaceWith(second)
     await vi.waitFor(() => { expect(second.style.width).toBe('calc(100% - 34px)') })
     expect(first.style.width).toBe('75%')
-    expect(anchor.style.left).toBe('244px')
+    expect(anchor.style.left).toBe('212px')
     expect(anchor.style.top).toBe('307px')
-    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('260px')
+    expect(anchor.style.getPropertyValue('--dcu-panel-available-width')).toBe('228px')
 
     dispose()
     expect(second.style.width).toBe('80%')
@@ -96,15 +96,15 @@ describe('footer meter placement', () => {
     settingsArea.append(trigger)
     await vi.waitFor(() => {
       expect(trigger.style.width).toBe('calc(100% - 68px)')
-      expect(second.style.left).toBe('204px')
-      expect(first.style.left).toBe('236px')
+      expect(second.style.left).toBe('140px')
+      expect(first.style.left).toBe('172px')
     })
 
     disposeFirst()
     first.remove()
     await vi.waitFor(() => {
       expect(trigger.style.width).toBe('calc(100% - 34px)')
-      expect(second.style.left).toBe('204px')
+      expect(second.style.left).toBe('172px')
     })
 
     disposeSecond()
